@@ -1,2 +1,2 @@
 # erip
-gallery downloader | Taibot (v2)
+Image downloader for a popular image gallery system. Auto proxy picker included.
