@@ -1,21 +1,19 @@
-import os, re, sys, urllib2, socket
+import argparse, os, re, sys, socket, urllib, urllib.request, urllib.error
 from bs4 import BeautifulSoup
 
-#get html from url
-def returnHTML(url):
-	hdr = {'Accept': 'text/html', 'User-Agent' : 'Fiddler'}
-	req = urllib2.Request(url, headers=hdr)
-	html = urllib2.urlopen(req).read()
-	return html
+hdr = {'Accept': 'text/html', 'User-Agent' : 'Fiddler'}
+website = ''
 
-#get html from url via proxy
-def returnHTMLProxy(url, address):
-	hdr = {'Accept': 'text/html', 'User-Agent' : 'Fiddler'}
-	req = urllib2.Request(url, headers=hdr)
-	proxy = urllib2.ProxyHandler({'https': address})
-	opener = urllib2.build_opener(proxy)
-	urllib2.install_opener(opener)
-	html = urllib2.urlopen(req).read()
+#get html / via proxy
+def returnHTML(url, en_proxy, address):
+	if (en_proxy == 0) :
+		proxy = urllib.request.ProxyHandler({})
+	else:
+		proxy = urllib.request.ProxyHandler({'https': address})
+	opener = urllib.request.build_opener(proxy)
+	urllib.request.install_opener(opener)
+	req = urllib.request.Request(url, headers=hdr)
+	html = urllib.request.urlopen(req).read()
 	return html
 
 #get inner html from tag
@@ -42,7 +40,7 @@ def downloadPic(r, path):
 	return
 	
 def findProxy():
-	html = returnHTML('https://www.us-proxy.org/')
+	html = returnHTML('https://www.us-proxy.org/', 0, '')
 	table = getTagData(html, 'table', 0, 'proxylisttable')[0].tbody
 	rows = table.find_all('tr')
 	for row in rows:
@@ -50,13 +48,13 @@ def findProxy():
 		print('Checking: %s:%s' % (r[0].get_text(),r[1].get_text()))
 		try:
 			address = r[0].get_text() + ':' +  r[1].get_text()
-			testHTML = returnHTMLProxy('https://example.org', address)
+			testHTML = returnHTML(website, 1, address)
 			print('found one!')
 			file = open('proxy.txt','w')
 			file.write('%s:%s' % (r[0].get_text(), r[1].get_text()))
 			file.close()
 			break
-		except (urllib2.HTTPError, urllib2.URLError, socket.timeout) as e:
+		except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
 			print('this one doesn\'t work (%s)' % e)
 	return address
 	
@@ -68,7 +66,7 @@ def proxySetup():
 	print('old proxy: %s' % proxy)
 	
 	try:
-		testHTML = returnHTMLProxy('https://example.org', proxy)
+		testHTML = returnHTML(website, 1, proxy)
 		print('old proxy works')
 	except:
 		print('old proxy doesn\'t work, let\'s find a new one')
@@ -79,7 +77,7 @@ proxy = proxySetup()
 url = str(sys.argv[1])
 
 # get title
-html = returnHTMLProxy(url, proxy)
+html = returnHTML(url, 1, proxy)
 title = getTagData(html, 'h1', 0, 'gn')[0].get_text()
 print('Title: %s' % title)
 
@@ -89,7 +87,7 @@ linkStart = divStart[0].div.a['href']
 print ('Beginning: %s' % linkStart)
 
 # retrieve the total number of pages
-html = returnHTMLProxy(linkStart, proxy)
+html = returnHTML(linkStart, 1, proxy)
 countRaw = getTagData(html, 'div', 0, 'i2')[0].div.div.get_text()
 countRegex = re.search('^\d+ \/(.*?)$', countRaw)
 count = countRegex.group(1).strip()
@@ -101,7 +99,7 @@ imgUrl = imgRaw[0].a.img['src']
 
 # create folder and save img
 os.mkdir(title)
-r = urllib2.urlopen(imgUrl)
+r = urllib.request.urlopen(imgUrl)
 downloadPic(r, '%s//%s.png' % (str(title),('%03d' % (1,))))
 
 # go through all the pages
@@ -109,14 +107,14 @@ for i in range(2,int(count)+1):
 
 	# next page url
 	nextUrl = getTagData(html, 'a', 0, 'next')[0]
-	html = returnHTMLProxy(nextUrl['href'], proxy)
+	html = returnHTML(nextUrl['href'], 1, proxy)
 	
 	# current img
 	imgRaw = getTagData(html, 'div', 0, 'i3')
 	imgUrl = imgRaw[0].a.img['src']
 	
 	# save to folder
-	r = urllib2.urlopen(imgUrl)
+	r = urllib.request.urlopen(imgUrl)
 	downloadPic(r, '%s//%s.png' % (str(title),('%03d' % (i,))))
 	
 	print('%s/%s' % (i, count))
