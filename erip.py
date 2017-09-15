@@ -2,7 +2,8 @@ import argparse, os, re, sys, socket, urllib, urllib.request, urllib.error
 from bs4 import BeautifulSoup
 
 hdr = {'Accept': 'text/html', 'User-Agent' : 'Fiddler'}
-website = ''
+website = 'http://example.com'
+htmlTemp = begin = None
 
 #get html / via proxy
 def returnHTML(url, en_proxy, address):
@@ -11,7 +12,7 @@ def returnHTML(url, en_proxy, address):
 		timeout=120
 	else:
 		proxy = urllib.request.ProxyHandler({'https': address})
-		timeout=10
+		timeout=20
 	opener = urllib.request.build_opener(proxy)
 	urllib.request.install_opener(opener)
 	req = urllib.request.Request(url, headers=hdr)
@@ -20,7 +21,7 @@ def returnHTML(url, en_proxy, address):
 
 #get inner html from tag
 def getTagData(html, tag, mode, classid):
-	list = ''
+	list = None
 	if mode == 0: #id
 		soup = BeautifulSoup(html, 'html.parser')
 		list = soup.find_all(tag, id=classid)
@@ -75,8 +76,11 @@ def proxySetup():
 		proxy = findProxy()
 	return proxy
 
-proxy = proxySetup()
 url = str(sys.argv[1])
+start = str(sys.argv[2])
+
+# find a suitable proxy
+proxy = proxySetup()
 
 # get title
 html = returnHTML(url, 1, proxy)
@@ -99,14 +103,32 @@ print('Number of pages: %s' % count)
 imgRaw = getTagData(html, 'div', 0, 'i3')
 imgUrl = imgRaw[0].a.img['src']
 
-# create folder and save img
-os.mkdir(title)
+# create folder and save the first img
+try:
+	os.mkdir(title)
+except FileExistsError as err:
+	print('Folder already exists')
+
 r = urllib.request.urlopen(imgUrl)
 downloadPic(r, '%s//%s.png' % (str(title),('%03d' % (1,))))
 
-# go through all the pages
-for i in range(2,int(count)+1):
+# skip if start var is > 0
+htmlTemp = html
+print('Skipping...')
+for j in range(2, int(start)):
+	nextUrlTemp = getTagData(htmlTemp, 'a', 0, 'next')[0]
+	htmlTemp = returnHTML(nextUrlTemp['href'], 1, proxy)
+	#print('Skipping... %s [%s]' % (j,nextUrlTemp['href'])) #debug
+html = htmlTemp
 
+if int(start) > 0:
+	begin = int(start)
+else:
+	begin = 2
+
+# go through all the pages 
+for i in range(begin, int(count) + 1):
+	
 	# next page url
 	nextUrl = getTagData(html, 'a', 0, 'next')[0]
 	html = returnHTML(nextUrl['href'], 1, proxy)
