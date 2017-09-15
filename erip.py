@@ -8,12 +8,14 @@ website = ''
 def returnHTML(url, en_proxy, address):
 	if (en_proxy == 0) :
 		proxy = urllib.request.ProxyHandler({})
+		timeout=120
 	else:
 		proxy = urllib.request.ProxyHandler({'https': address})
+		timeout=10
 	opener = urllib.request.build_opener(proxy)
 	urllib.request.install_opener(opener)
 	req = urllib.request.Request(url, headers=hdr)
-	html = urllib.request.urlopen(req).read()
+	html = urllib.request.urlopen(req, timeout=timeout).read()
 	return html
 
 #get inner html from tag
